@@ -354,7 +354,7 @@ if(!lose){
     if (speed<4) speed += delta/50;
     else speed += delta/100;
     //radius expansion rate
-    radius += delta
+    radius += delta/2
 } else{
    gameOver();
 }
