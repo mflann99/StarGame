@@ -13,19 +13,8 @@ let context = canvas.getContext('2d');
 //i didn't want to change var names but its no longer based on mouse input
 let mouseX = 200;
 let mouseY = 500;
-// when the mouse moves in the canvas, remember where it moves to
-// canvas.onmousemove = function(event) {
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-//     // unfortunately, X,Y is relative to the overall window -
-//     // we need the X,Y inside the canvas!
-//     // we know that event.target is a HTMLCanvasElement, so tell typescript
-//     let box = /** @type {HTMLCanvasElement} */(event.target).getBoundingClientRect();
-//     mouseX -= box.left;
-//     mouseY -= box.top;
-// };
 
-
+//function to get rid of the star screen and begin animating
 let start = false
 function begin(s){
     if (!s){
@@ -33,15 +22,16 @@ function begin(s){
         animate();
     }
 }
-const move_constant = 5;
+const move_constant = 5; //max speed
 let accel_x = 0;
 let accel_y = 0;
-const a_init = 2;
-const a = 0.5;
+const a_init = 2; //initial acceleration
+const a = 0.5; //incremental acceleration. Increase for less "floatiness"
 let left = false;
 let up = false;
 let right = false;
 let down = false;
+
 document.onkeydown = function (event) {
     switch (event.keyCode) {
        case 37:
@@ -88,12 +78,14 @@ document.onkeydown = function (event) {
     }
  };
 
+ //generates random integer
 function randInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
 }
 
+//draws hydrogen molecules
 function drawH(x,y,scale,color,angle){
     context.fillStyle = color;
     context.save();
@@ -106,6 +98,7 @@ function drawH(x,y,scale,color,angle){
     context.restore();
 }
 
+//draws the main player star
 function drawStar(x,y,radius,color){
     context.fillStyle = color;
     context.beginPath();
@@ -113,6 +106,26 @@ function drawStar(x,y,radius,color){
     context.closePath();
     context.fill();
 
+    //below code handles the trail
+    context.fillStyle = "rgba(" + rgb[0]+","+rgb[1]+","+rgb[2]+",0.8)"
+    context.beginPath();
+    context.arc(x+(-accel_x*2),y+(-accel_y*2),radius*0.9,0,2*Math.PI);
+    context.closePath();
+    context.fill();
+
+    context.fillStyle = "rgba(" + rgb[0]+","+rgb[1]+","+rgb[2]+",0.6)"
+    context.beginPath();
+    context.arc(x+(-accel_x*4),y+(-accel_y*4),radius*0.7,0,2*Math.PI);
+    context.closePath();
+    context.fill();
+
+    context.fillStyle = "rgba(" + rgb[0]+","+rgb[1]+","+rgb[2]+",0.4)"
+    context.beginPath();
+    context.arc(x+(-accel_x*5),y+(-accel_y*5),radius*0.5,0,2*Math.PI);
+    context.closePath();
+    context.fill();
+
+    //code to handle the gradual whitening of the core
     for(let i = 0.8; i>0; i-=0.1){
         context.fillStyle = "rgba(255,255,255,0.1)";
         context.beginPath();
@@ -123,6 +136,7 @@ function drawStar(x,y,radius,color){
 
 }
 
+//draws black hole
 function drawHole(x,y, scale){
     context.save();
     context.scale(scale,scale);
@@ -152,7 +166,7 @@ function drawHole(x,y, scale){
     context.restore();
 }
 
-//change with correct score proportions
+//updates the color of the star based on score
 function changeColor(score,rgb){
     if(score<10){
         //rgb[0] -= 25;
@@ -174,6 +188,7 @@ function changeColor(score,rgb){
     return rgb
 }
 
+//initiates game over screen
 function gameOver(){
     context.font = '48px copperplate';
     context.fillStyle = "red";
@@ -183,21 +198,24 @@ function gameOver(){
     context.lineWidth = 2;
     context.strokeText("Game Over",200,250);
 }
+
 let score_constant;
+let s_c
 let mass;
 let temp;
+
+//generates the mass and temperature
 function updateScore(score,radius){
-    score_constant = Math.pow(Math.E,score/4)
-    temp = 1000 + score_constant * 1000
-    temp = temp.toFixed(2)
+    mass = 0.1 + score* 0.1
+    mass = Math.round(mass * 100) / 100
+
+    temp = 1000 + score*1000
+    temp = Math.round(temp * 100) / 100
 
     context.font = "16px Monaco";
     context.fillStyle = "white";
     context.textAlign = "left";
-    context.fillText("Mass:" + score_constant.toFixed(2) + " Mo", 8,24);
-
-    context.textAlign = "center";
-    //context.fillText("Radius:" + Math.ceil(radius) + " AU", 200,24);
+    context.fillText("Mass:" + mass + " Mo", 8,24);
 
     context.textAlign = "right";
     context.fillText("Temperature:" + temp + " K", 392,24);
@@ -252,7 +270,7 @@ if(!lose){
     if(gen_int > 98){
         let x = randInt(10,390);
         let s = 3*Math.random()
-        h_p.push({"x":x,"y":0,"speed":speed+s,"collect":false});
+        h_p.push({"x":x,"y":0,"speed":speed+s,"collect":false,"time":0});
     }
 
     //generates hydrogen. Collect to increase your stars mass and temperature
@@ -260,8 +278,8 @@ if(!lose){
         h.y = h.y + h.speed;
         context.save();
             //context.scale(Math.cos(lastTimestamp/100),1);
-            drawH(h.x,h.y,1.8,"Chartreuse",Math.cos(lastTimestamp/1000));
-            drawH(h.x,h.y,1.6,"white",Math.cos(lastTimestamp/1000));
+            drawH(h.x,h.y,1.8,"Chartreuse",Math.cos(h.time));
+            drawH(h.x,h.y,1.6,"white",Math.cos(h.time));
         context.restore();
 
         if((Math.abs(mouseX-h.x)<radius) && (Math.abs(mouseY-h.y)<radius)){
@@ -274,6 +292,7 @@ if(!lose){
             rgb = changeColor(score,rgb); //changes color of star as more H collected
             radius -= 0.5 //decreases size of star
         }
+        h.time += 2*delta;
     })
 
     h_p = h_p.filter(
@@ -292,7 +311,7 @@ if(!lose){
         bh.y += speed;
         drawHole(bh.x,bh.y,bh.scale);
         //the 30 will need to be changed depending on final size of the black hole
-        if((Math.abs(mouseX-bh.x)<radius+(30*bh.scale)) && (Math.abs(mouseY-bh.y)<radius+(30*bh.scale))){
+        if((Math.abs(mouseX-bh.x)<radius+(25*bh.scale)) && (Math.abs(mouseY-bh.y)<radius+(25*bh.scale))){
             bh.hit = true;
             lose = true;
         }
@@ -323,7 +342,7 @@ if(!lose){
         accel_y = 0;
     }
 
-    //formula for deacceleration here;
+    //accelleration increase
     if(left && accel_x>-move_constant){
         accel_x -= a;
     }
@@ -337,6 +356,7 @@ if(!lose){
         accel_y += a;
     }
 
+    //deacceleration. Increase for less "floatiness"
     if (accel_x<0){
         accel_x += 0.07
     } else{
@@ -347,9 +367,8 @@ if(!lose){
     } else{
         accel_y -= 0.07
     }
-    //if ( (mouseX > 0) && (mouseY > 0) ) {
-        drawStar(mouseX,mouseY,radius,"rgba(" + rgb[0]+","+rgb[1]+","+rgb[2]+",1)")
-    //}
+
+    drawStar(mouseX,mouseY,radius,"rgba(" + rgb[0]+","+rgb[1]+","+rgb[2]+",1)")
 
     if (speed<4) speed += delta/50;
     else speed += delta/100;
@@ -368,10 +387,10 @@ context.fillRect(0,0,canvas.width,canvas.height);
 context.font = '48px copperplate';
 context.fillStyle = "red";
 context.textAlign = 'center';
-context.fillText("Star Stuff",200,250);
+context.fillText("Shooting Stars",200,250);
 context.strokeStyle = "white";
 context.lineWidth = 2;
-context.strokeText("Star Stuff",200,250);
+context.strokeText("Shooting Stars",200,250);
 
 context.font = "16px Monaco";
 context.fillStyle = "white";
